@@ -1,8 +1,10 @@
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
+import numpy as np
 
 class New_features(BaseEstimator, TransformerMixin):
+    """This function creates new features out of the old ones"""
     def __init__(self, feature_names=None):
         self.feature_names = feature_names 
         
@@ -48,6 +50,7 @@ class ModSwitcher(BaseEstimator):
         return self.estimator.score(X, y)
 
 class Drop_target(BaseEstimator, TransformerMixin):
+    """To drop the rows where target value is maximal"""
     def fit(self, X, y=None):
         return self
     
@@ -55,6 +58,7 @@ class Drop_target(BaseEstimator, TransformerMixin):
         return df[df['median_house_value'] != df['median_house_value'].max()]
 
 class Drop_outliers(BaseEstimator, TransformerMixin):
+    """drop rows with outliers"""
     def fit(self, df, y=None):
         self.df = df
         
@@ -73,23 +77,8 @@ class Drop_outliers(BaseEstimator, TransformerMixin):
             df = df[df[i]<self.max_threshold[i]]
         return df
 
-class Drop_all_outliers(BaseEstimator, TransformerMixin):
-    def fit(self, df, y=None):
-        self.df = df
-        Q1 = self.df.quantile(0.25)
-        Q3 = self.df.quantile(0.75)
-        IQR = Q3 - Q1
-        self.lower_limit = Q1 - 1.5*IQR
-        self.upper_limit = Q3 + 1.5*IQR
-        self.index = self.lower_limit.index
-        return self
-
-    def transform(self, df):
-        for i in self.index:
-            df = df[(df[i]>self.lower_limit[i]) & (df[i]<self.upper_limit[i])]
-        return df
-
 class Trim_outliers(BaseEstimator, TransformerMixin):
+    """Replace outliers by NA or by the max value"""
     def __init__(self,factor=6.1, na=False):
         self.factor = factor
         self.na = na
