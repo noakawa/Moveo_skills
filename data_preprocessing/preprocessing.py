@@ -1,23 +1,51 @@
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
 
 class New_features(BaseEstimator, TransformerMixin):
+    def __init__(self, feature_names=None):
+        self.feature_names = feature_names 
+        
     def fit(self, X, y=None):
         return self
     
-    def transform(self, df):
-        df['house_by_pop'] = df["households"]/df["population"]
-        df['rooms_by_pop'] = df["total_rooms"]/df["population"]
-        df['rooms_by_houses'] = df["total_rooms"]/df["households"]
+    def transform(self, X):
+        df2 = X.copy()
+        df2['house_by_pop'] = X["households"]/X["population"]
+        df2['rooms_by_pop'] = X["total_rooms"]/X["population"]
+        df2['rooms_by_houses'] = X["total_rooms"]/X["households"]
+        
         # Combining longitude and latitude
-        df['ll'] = df['longitude'] + df['latitude']
+        df2['ll'] = X['longitude'] + X['latitude']
+        
         #df['is_inland'] = 1*(df['ocean_proximity']=='INLAND')
         #df['<1H OCEAN'] = 1*(df['ocean_proximity']=='<1H OCEAN')
         
-        df.drop(columns=[#'longitude','latitude',
+        df2.drop(columns=[#'longitude','latitude',
                          #'ocean_proximity',
                          'households','population','total_bedrooms'], inplace=True)
-        return df
+        return df2
+    
+class ModSwitcher(BaseEstimator):
+    def __init__(self, estimator = RandomForestRegressor()):
+        self.estimator = estimator
+
+
+    def fit(self, X, y=None, **kwargs):
+        self.estimator.fit(X, y)
+        return self
+
+
+    def predict(self, X, y=None):
+        return self.estimator.predict(X)
+
+
+    def predict_proba(self, X):
+        return self.estimator.predict_proba(X)
+
+
+    def score(self, X, y):
+        return self.estimator.score(X, y)
 
 class Drop_target(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None):
@@ -60,3 +88,29 @@ class Drop_all_outliers(BaseEstimator, TransformerMixin):
         for i in self.index:
             df = df[(df[i]>self.lower_limit[i]) & (df[i]<self.upper_limit[i])]
         return df
+
+class Trim_outliers(BaseEstimator, TransformerMixin):
+    def __init__(self,factor=6.1, na=False):
+        self.factor = factor
+        self.na = na
+        
+    def fit(self, X, y=None):
+        
+        std7 = X.max() - (self.factor*X.std() + X.quantile(q=0.75)) 
+        self.index = std7[std7>0].index
+        
+        self.max_threshold = {}
+        for i in self.index:
+            self.max_threshold[i] = X[i].quantile(0.99)
+        
+        return self
+
+    def transform(self, X):
+        X2 = X.copy()
+        if self.na:
+            for i in self.index:
+                X2[X2[i]>self.max_threshold[i]] = np.nan
+        else:
+            for i in self.index:
+                X2[X2[i]>self.max_threshold[i]] = self.max_threshold[i]
+        return X2
