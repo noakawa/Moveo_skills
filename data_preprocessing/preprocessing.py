@@ -2,6 +2,11 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 import numpy as np
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import StandardScaler
 
 class New_features(BaseEstimator, TransformerMixin):
     """This function creates new features out of the old ones"""
@@ -103,3 +108,26 @@ class Trim_outliers(BaseEstimator, TransformerMixin):
             for i in self.index:
                 X2[X2[i]>self.max_threshold[i]] = self.max_threshold[i]
         return X2
+
+def pipe(X_train, model=None):
+    categorical_cols = X_train.select_dtypes(exclude=np.number).columns
+    categorical_transformer = Pipeline(steps=[
+        ('imputer', SimpleImputer(strategy='most_frequent')),
+        ('onehot', OneHotEncoder(handle_unknown='ignore', min_frequency = 0.12))
+    ])
+
+    numerical_cols = X_train.select_dtypes(include=np.number).columns
+    numerical_transformer = Pipeline(steps=[
+        ('new_features', New_features()),
+        ('outliers', Trim_outliers(na=True, factor=1000)),
+        ('imputer', SimpleImputer(strategy='mean')),
+        ('scaler',  StandardScaler())
+    ])
+
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ('num', numerical_transformer, numerical_cols),
+            ('cat', categorical_transformer, categorical_cols)
+        ])
+    
+    return Pipeline(steps=[('preprocessor', preprocessor), ('model', ModSwitcher(estimator=model))])
